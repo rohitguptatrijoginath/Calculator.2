@@ -4,19 +4,15 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.scrollview import ScrollView
-from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from kivy.graphics import Color, RoundedRectangle
 from kivy.core.window import Window
 from kivy.metrics import dp
 from kivy.animation import Animation
 from kivy.utils import get_color_from_hex
-from kivy.storage.jsonstore import JsonStore
-from kivy.clock import Clock
-
 import math
 
 
-# ✅ SAFE CALC
+# ✅ Safe Calculator
 def safe_calc(expr):
     expr = expr.replace('×', '*').replace('÷', '/').replace('^', '**')
     allowed = "0123456789+-*/.() "
@@ -26,7 +22,7 @@ def safe_calc(expr):
     return eval(expr)
 
 
-# ✅ ROUNDED BUTTON
+# ✅ Rounded Button
 class RoundedButton(Button):
     def __init__(self, bg_color="#1C1C1C", **kwargs):
         super().__init__(**kwargs)
@@ -49,17 +45,33 @@ class RoundedButton(Button):
         Animation(opacity=1, duration=0.1).start(self)
 
 
-class AdvancedCalculatorX(App):
+class CalculatorApp(App):
 
     memory = 0
+    history = []
     dark_mode = True
 
     def build(self):
         Window.clearcolor = (0, 0, 0, 1)
-        self.store = JsonStore('history.json')
 
         main = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
 
+        # ✅ History
+        self.history_label = Label(
+            text="",
+            size_hint_y=None,
+            halign="right",
+            valign="top",
+            color=(0.5, 0.5, 0.5, 1),
+            font_size='14sp'
+        )
+        self.history_label.bind(texture_size=self.history_label.setter('size'))
+
+        scroll = ScrollView(size_hint=(1, 0.2))
+        scroll.add_widget(self.history_label)
+        main.add_widget(scroll)
+
+        # ✅ Display
         self.display = Label(
             text="0",
             font_size='48sp',
@@ -70,30 +82,10 @@ class AdvancedCalculatorX(App):
         )
         self.display.bind(size=lambda i, v: setattr(i, 'text_size', v))
         self.display.bind(on_touch_down=self.double_tap_theme)
-
         main.add_widget(self.display)
 
-        tabs = TabbedPanel(do_default_tab=False)
-
-        basic_tab = TabbedPanelItem(text="Calculator")
-        basic_tab.content = self.basic_layout()
-        tabs.add_widget(basic_tab)
-
-        sci_tab = TabbedPanelItem(text="Scientific")
-        sci_tab.content = self.scientific_layout()
-        tabs.add_widget(sci_tab)
-
-        hist_tab = TabbedPanelItem(text="History")
-        hist_tab.content = self.history_layout()
-        tabs.add_widget(hist_tab)
-
-        main.add_widget(tabs)
-
-        return main
-
-    # ✅ BASIC
-    def basic_layout(self):
-        grid = GridLayout(cols=4, spacing=dp(8))
+        # ✅ Buttons
+        grid = GridLayout(cols=4, spacing=dp(8), size_hint=(1, 0.6))
 
         buttons = [
             'MC', 'MR', 'M+', 'M-',
@@ -102,126 +94,41 @@ class AdvancedCalculatorX(App):
             '4', '5', '6', '-',
             '1', '2', '3', '+',
             '0', '.', '√', '=',
-            'x²', '^', '[x]', '00'
+            'x²', '^', '[x]', 'sin',
+            'cos', 'tan', 'log', 'ln'
         ]
 
         for text in buttons:
-            btn = RoundedButton(text=text, bg_color='#1C1C1C')
-            btn.bind(on_press=self.basic_press)
+            if text in ['÷', '×', '-', '+', '=', '^']:
+                color = '#9C27B0'
+            elif text in ['C', '±', '√', 'x²', '[x]', 'sin', 'cos', 'tan', 'log', 'ln']:
+                color = '#424242'
+            elif text in ['MC', 'MR', 'M+', 'M-']:
+                color = '#00695C'
+            elif text == '🌙':
+                color = '#455A64'
+            else:
+                color = '#1C1C1C'
+
+            btn = RoundedButton(text=text, bg_color=color, font_size='18sp', color=(1, 1, 1, 1))
+            btn.bind(on_press=self.on_press)
             grid.add_widget(btn)
 
-        return grid
+        main.add_widget(grid)
 
-    # ✅ SCIENTIFIC
-    def scientific_layout(self):
-        grid = GridLayout(cols=4, spacing=dp(8))
+        return main
 
-        buttons = [
-            'sin', 'cos', 'tan', 'π',
-            'log', 'ln', 'e', '!',
-            '(', ')', '^', 'DEL',
-            '7', '8', '9', '÷',
-            '4', '5', '6', '×',
-            '1', '2', '3', '-',
-            '0', '.', '=', '+'
-        ]
-
-        for text in buttons:
-            btn = RoundedButton(text=text, bg_color='#1C1C1C')
-            btn.bind(on_press=self.scientific_press)
-            grid.add_widget(btn)
-
-        return grid
-
-    # ✅ HISTORY
-    def history_layout(self):
-        box = BoxLayout(orientation='vertical')
-        self.history_label = Label(text="", size_hint_y=None)
-        scroll = ScrollView()
-        scroll.add_widget(self.history_label)
-        box.add_widget(scroll)
-        self.load_history()
-        return box
-
-    def save_history(self, expr, result):
-        data = self.store.get('items')['list'] if self.store.exists('items') else []
-        data.append(f"{expr} = {result}")
-        self.store.put('items', list=data[-50:])
-
-    def load_history(self):
-        if self.store.exists('items'):
-            items = self.store.get('items')['list']
-            self.history_label.text = "\n".join(items[::-1])
-
-    # ✅ BASIC LOGIC
-    def basic_press(self, instance):
-        text = instance.text
-        current = self.display.text
-
-        if text == 'C':
-            self.display.text = "0"
-        elif text == '[x]':
-            self.display.text = current[:-1] if len(current) > 1 else "0"
-        elif text == '±':
-            self.display.text = current[1:] if current.startswith("-") else "-" + current
-        elif text == '√':
-            self.display.text = str(round(math.sqrt(float(current)), 10))
-        elif text == 'x²':
-            self.display.text = str(round(float(current) ** 2, 10))
-        elif text == '=':
-            try:
-                result = safe_calc(current)
-                self.display.text = str(result)
-                self.save_history(current, result)
-                self.load_history()
-            except:
-                self.display.text = "Error"
-        elif text == '🌙':
-            self.toggle_theme()
+    def adjust_font(self):
+        length = len(self.display.text)
+        if length > 20:
+            self.display.font_size = '22sp'
+        elif length > 15:
+            self.display.font_size = '30sp'
+        elif length > 10:
+            self.display.font_size = '38sp'
         else:
-            if current == "0":
-                self.display.text = text
-            else:
-                self.display.text += text
+            self.display.font_size = '48sp'
 
-    # ✅ SCIENTIFIC LOGIC
-    def scientific_press(self, instance):
-        text = instance.text
-        current = self.display.text
-
-        try:
-            if text == 'sin':
-                self.display.text = str(math.sin(float(current)))
-            elif text == 'cos':
-                self.display.text = str(math.cos(float(current)))
-            elif text == 'tan':
-                self.display.text = str(math.tan(float(current)))
-            elif text == 'log':
-                self.display.text = str(math.log10(float(current)))
-            elif text == 'ln':
-                self.display.text = str(math.log(float(current)))
-            elif text == 'π':
-                self.display.text += str(math.pi)
-            elif text == 'e':
-                self.display.text += str(math.e)
-            elif text == '!':
-                self.display.text = str(math.factorial(int(float(current))))
-            elif text == 'DEL':
-                self.display.text = current[:-1] if len(current) > 1 else "0"
-            elif text == '=':
-                result = safe_calc(current)
-                self.display.text = str(result)
-                self.save_history(current, result)
-                self.load_history()
-            else:
-                if current == "0":
-                    self.display.text = text
-                else:
-                    self.display.text += text
-        except:
-            self.display.text = "Error"
-
-    # ✅ THEME
     def toggle_theme(self):
         self.dark_mode = not self.dark_mode
         if self.dark_mode:
@@ -235,6 +142,92 @@ class AdvancedCalculatorX(App):
         if touch.is_double_tap:
             self.toggle_theme()
 
+    def on_press(self, instance):
+        text = instance.text
+        current = self.display.text
+
+        if text == 'C':
+            self.display.text = "0"
+
+        elif text == '[x]':
+            self.display.text = current[:-1] if len(current) > 1 else "0"
+
+        elif text == '±':
+            if current.startswith('-'):
+                self.display.text = current[1:]
+            elif current != "0":
+                self.display.text = '-' + current
+
+        elif text == '√':
+            try:
+                val = float(current)
+                self.display.text = str(round(math.sqrt(val), 10)) if val >= 0 else "Error"
+            except:
+                self.display.text = "Error"
+
+        elif text == 'x²':
+            try:
+                self.display.text = str(round(float(current) ** 2, 10))
+            except:
+                self.display.text = "Error"
+
+        elif text == '🌙':
+            self.toggle_theme()
+
+        elif text == '=':
+            try:
+                result = safe_calc(current)
+                self.history.append(f"{current} = {result}")
+                self.history_label.text = "\n".join(self.history[-10:])
+                self.display.text = str(result)
+            except:
+                self.display.text = "Error"
+
+        elif text in ['MC', 'MR', 'M+', 'M-']:
+            try:
+                value = float(current)
+            except:
+                value = 0
+
+            if text == 'MC':
+                self.memory = 0
+            elif text == 'MR':
+                self.display.text = str(self.memory)
+            elif text == 'M+':
+                self.memory += value
+            elif text == 'M-':
+                self.memory -= value
+
+        elif text in ['sin', 'cos', 'tan', 'log', 'ln']:
+            try:
+                val = float(current)
+                if text == 'sin':
+                    self.display.text = str(round(math.sin(math.radians(val)), 10))
+                elif text == 'cos':
+                    self.display.text = str(round(math.cos(math.radians(val)), 10))
+                elif text == 'tan':
+                    self.display.text = str(round(math.tan(math.radians(val)), 10))
+                elif text == 'log':
+                    self.display.text = str(round(math.log10(val), 10)) if val > 0 else "Error"
+                elif text == 'ln':
+                    self.display.text = str(round(math.log(val), 10)) if val > 0 else "Error"
+            except:
+                self.display.text = "Error"
+
+        elif text in ['+', '-', '×', '÷', '^']:
+            if current and current[-1] in ['+', '-', '×', '÷', '^']:
+                self.display.text = current[:-1] + text
+            else:
+                self.display.text += text
+
+        else:
+            if current == "0":
+                self.display.text = text
+            else:
+                self.display.text += text
+
+        self.adjust_font()
+
 
 if __name__ == "__main__":
-    AdvancedCalculatorX().run()
+    CalculatorApp().run()
