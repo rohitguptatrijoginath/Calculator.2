@@ -11,7 +11,6 @@ from kivy.animation import Animation
 from kivy.utils import get_color_from_hex
 import math
 
-
 def safe_calc(expr):
     expr = expr.replace('×', '*').replace('÷', '/').replace('^', '**')
     allowed = "0123456789+-*/.() "
@@ -20,7 +19,6 @@ def safe_calc(expr):
             raise Exception("Invalid")
     return eval(expr)
 
-
 class RoundedButton(Button):
     def __init__(self, bg_color="#1C1C1C", **kwargs):
         super().__init__(**kwargs)
@@ -28,7 +26,7 @@ class RoundedButton(Button):
         self.background_color = (0, 0, 0, 0)
 
         with self.canvas.before:
-            Color(*get_color_from_hex(bg_color))
+            self.bg_color_instruction = Color(*get_color_from_hex(bg_color))
             self.rect = RoundedRectangle(radius=[dp(20)])
 
         self.bind(pos=self.update_rect, size=self.update_rect)
@@ -39,17 +37,14 @@ class RoundedButton(Button):
         self.rect.size = self.size
 
     def animate_press(self, *args):
-        Animation(opacity=0.7, duration=0.05).start(self)
-        Animation(opacity=1, duration=0.1).start(self)
-
+        anim = Animation(opacity=0.7, duration=0.05) + Animation(opacity=1, duration=0.1)
+        anim.start(self)
 
 class CalculatorApp(App):
-
-    memory = 0
-    history = []
-    dark_mode = True
-
     def build(self):
+        self.dark_mode = True
+        self.memory = 0
+        self.history = []
         Window.clearcolor = (0, 0, 0, 1)
 
         main = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
@@ -77,7 +72,6 @@ class CalculatorApp(App):
             color=(1, 1, 1, 1)
         )
         self.display.bind(size=lambda i, v: setattr(i, 'text_size', v))
-        self.display.bind(on_touch_down=self.double_tap_theme)
         main.add_widget(self.display)
 
         grid = GridLayout(cols=4, spacing=dp(8), size_hint=(1, 0.6))
@@ -111,10 +105,6 @@ class CalculatorApp(App):
             Window.clearcolor = (1, 1, 1, 1)
             self.display.color = (0, 0, 0, 1)
 
-    def double_tap_theme(self, instance, touch):
-        if touch.is_double_tap:
-            self.toggle_theme()
-
     def on_press(self, instance):
         text = instance.text
         current = self.display.text
@@ -122,54 +112,36 @@ class CalculatorApp(App):
         try:
             if text == 'C':
                 self.display.text = "0"
-
             elif text == '[x]':
                 self.display.text = current[:-1] if len(current) > 1 else "0"
-
             elif text == '±':
-                if current.startswith('-'):
-                    self.display.text = current[1:]
-                elif current != "0":
-                    self.display.text = '-' + current
-
+                if current.startswith('-'): self.display.text = current[1:]
+                elif current != "0": self.display.text = '-' + current
             elif text == '√':
                 val = float(current)
                 self.display.text = str(round(math.sqrt(val), 10)) if val >= 0 else "Error"
-
             elif text == 'x²':
                 self.display.text = str(round(float(current) ** 2, 10))
-
             elif text == '🌙':
                 self.toggle_theme()
-
             elif text == '=':
                 result = safe_calc(current)
                 self.history.append(f"{current} = {result}")
                 self.history_label.text = "\n".join(self.history[-10:])
                 self.display.text = str(result)
-
             elif text in ['sin', 'cos', 'tan', 'log', 'ln']:
                 val = float(current)
-                if text == 'sin':
-                    self.display.text = str(round(math.sin(math.radians(val)), 10))
-                elif text == 'cos':
-                    self.display.text = str(round(math.cos(math.radians(val)), 10))
-                elif text == 'tan':
-                    self.display.text = str(round(math.tan(math.radians(val)), 10))
-                elif text == 'log':
-                    self.display.text = str(round(math.log10(val), 10))
-                elif text == 'ln':
-                    self.display.text = str(round(math.log(val), 10))
-
+                if text == 'sin': res = math.sin(math.radians(val))
+                elif text == 'cos': res = math.cos(math.radians(val))
+                elif text == 'tan': res = math.tan(math.radians(val))
+                elif text == 'log': res = math.log10(val)
+                elif text == 'ln': res = math.log(val)
+                self.display.text = str(round(res, 10))
             else:
-                if current == "0":
-                    self.display.text = text
-                else:
-                    self.display.text += text
-
+                if current == "0" and text not in '+-×÷^': self.display.text = text
+                else: self.display.text += text
         except:
             self.display.text = "Error"
-
 
 if __name__ == "__main__":
     CalculatorApp().run()
