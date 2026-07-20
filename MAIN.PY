@@ -12,7 +12,6 @@ from kivy.utils import get_color_from_hex
 import math
 
 
-# ✅ Safe Calculator
 def safe_calc(expr):
     expr = expr.replace('×', '*').replace('÷', '/').replace('^', '**')
     allowed = "0123456789+-*/.() "
@@ -22,7 +21,6 @@ def safe_calc(expr):
     return eval(expr)
 
 
-# ✅ Rounded Button
 class RoundedButton(Button):
     def __init__(self, bg_color="#1C1C1C", **kwargs):
         super().__init__(**kwargs)
@@ -56,7 +54,6 @@ class CalculatorApp(App):
 
         main = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(10))
 
-        # ✅ History
         self.history_label = Label(
             text="",
             size_hint_y=None,
@@ -71,7 +68,6 @@ class CalculatorApp(App):
         scroll.add_widget(self.history_label)
         main.add_widget(scroll)
 
-        # ✅ Display
         self.display = Label(
             text="0",
             font_size='48sp',
@@ -84,7 +80,6 @@ class CalculatorApp(App):
         self.display.bind(on_touch_down=self.double_tap_theme)
         main.add_widget(self.display)
 
-        # ✅ Buttons
         grid = GridLayout(cols=4, spacing=dp(8), size_hint=(1, 0.6))
 
         buttons = [
@@ -99,35 +94,13 @@ class CalculatorApp(App):
         ]
 
         for text in buttons:
-            if text in ['÷', '×', '-', '+', '=', '^']:
-                color = '#9C27B0'
-            elif text in ['C', '±', '√', 'x²', '[x]', 'sin', 'cos', 'tan', 'log', 'ln']:
-                color = '#424242'
-            elif text in ['MC', 'MR', 'M+', 'M-']:
-                color = '#00695C'
-            elif text == '🌙':
-                color = '#455A64'
-            else:
-                color = '#1C1C1C'
-
-            btn = RoundedButton(text=text, bg_color=color, font_size='18sp', color=(1, 1, 1, 1))
+            btn = RoundedButton(text=text, bg_color='#1C1C1C',
+                                font_size='18sp', color=(1, 1, 1, 1))
             btn.bind(on_press=self.on_press)
             grid.add_widget(btn)
 
         main.add_widget(grid)
-
         return main
-
-    def adjust_font(self):
-        length = len(self.display.text)
-        if length > 20:
-            self.display.font_size = '22sp'
-        elif length > 15:
-            self.display.font_size = '30sp'
-        elif length > 10:
-            self.display.font_size = '38sp'
-        else:
-            self.display.font_size = '48sp'
 
     def toggle_theme(self):
         self.dark_mode = not self.dark_mode
@@ -146,60 +119,36 @@ class CalculatorApp(App):
         text = instance.text
         current = self.display.text
 
-        if text == 'C':
-            self.display.text = "0"
+        try:
+            if text == 'C':
+                self.display.text = "0"
 
-        elif text == '[x]':
-            self.display.text = current[:-1] if len(current) > 1 else "0"
+            elif text == '[x]':
+                self.display.text = current[:-1] if len(current) > 1 else "0"
 
-        elif text == '±':
-            if current.startswith('-'):
-                self.display.text = current[1:]
-            elif current != "0":
-                self.display.text = '-' + current
+            elif text == '±':
+                if current.startswith('-'):
+                    self.display.text = current[1:]
+                elif current != "0":
+                    self.display.text = '-' + current
 
-        elif text == '√':
-            try:
+            elif text == '√':
                 val = float(current)
                 self.display.text = str(round(math.sqrt(val), 10)) if val >= 0 else "Error"
-            except:
-                self.display.text = "Error"
 
-        elif text == 'x²':
-            try:
+            elif text == 'x²':
                 self.display.text = str(round(float(current) ** 2, 10))
-            except:
-                self.display.text = "Error"
 
-        elif text == '🌙':
-            self.toggle_theme()
+            elif text == '🌙':
+                self.toggle_theme()
 
-        elif text == '=':
-            try:
+            elif text == '=':
                 result = safe_calc(current)
                 self.history.append(f"{current} = {result}")
                 self.history_label.text = "\n".join(self.history[-10:])
                 self.display.text = str(result)
-            except:
-                self.display.text = "Error"
 
-        elif text in ['MC', 'MR', 'M+', 'M-']:
-            try:
-                value = float(current)
-            except:
-                value = 0
-
-            if text == 'MC':
-                self.memory = 0
-            elif text == 'MR':
-                self.display.text = str(self.memory)
-            elif text == 'M+':
-                self.memory += value
-            elif text == 'M-':
-                self.memory -= value
-
-        elif text in ['sin', 'cos', 'tan', 'log', 'ln']:
-            try:
+            elif text in ['sin', 'cos', 'tan', 'log', 'ln']:
                 val = float(current)
                 if text == 'sin':
                     self.display.text = str(round(math.sin(math.radians(val)), 10))
@@ -208,25 +157,18 @@ class CalculatorApp(App):
                 elif text == 'tan':
                     self.display.text = str(round(math.tan(math.radians(val)), 10))
                 elif text == 'log':
-                    self.display.text = str(round(math.log10(val), 10)) if val > 0 else "Error"
+                    self.display.text = str(round(math.log10(val), 10))
                 elif text == 'ln':
-                    self.display.text = str(round(math.log(val), 10)) if val > 0 else "Error"
-            except:
-                self.display.text = "Error"
+                    self.display.text = str(round(math.log(val), 10))
 
-        elif text in ['+', '-', '×', '÷', '^']:
-            if current and current[-1] in ['+', '-', '×', '÷', '^']:
-                self.display.text = current[:-1] + text
             else:
-                self.display.text += text
+                if current == "0":
+                    self.display.text = text
+                else:
+                    self.display.text += text
 
-        else:
-            if current == "0":
-                self.display.text = text
-            else:
-                self.display.text += text
-
-        self.adjust_font()
+        except:
+            self.display.text = "Error"
 
 
 if __name__ == "__main__":
